@@ -452,7 +452,7 @@ result, assignment, steps = solve(clauses, num_vars, var_names)`;
 // ── Formula parser (JS) ──────────────────────────────────────────────────────
 function parseFormula(text) {
   text = text.trim();
-  const raw = text.match(/\b(?!AND\b|OR\b|NOT\b)[A-Za-z]\w*/g) || [];
+  const raw = text.match(/\b(?!AND\b|OR\b|NOT\b|V\b)[A-Za-z]\w*/g) || [];
   const seen = new Set(), varNames = [];
   raw.forEach(v => { if (!seen.has(v)) { seen.add(v); varNames.push(v); } });
   const vmap = {};
