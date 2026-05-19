@@ -196,7 +196,7 @@
 
       <div class="section-label">
         CNF Formula
-        <span>(A | B | ~C) &amp; (~A | D) — use &amp; / | / ~ or AND / OR / NOT</span>
+        <span>(A | B | ~C) &amp; (~A | D) — use &amp; / | / ~ or AND / OR / V / NOT</span>
       </div>
       <div id="formula-wrap">
         <textarea id="formula" spellcheck="false">(A | B) &amp; (~A | C) &amp; (~B | ~C)</textarea>
@@ -460,7 +460,7 @@ function parseFormula(text) {
   const clauses = [];
   for (const cs of text.split(/\s*&\s*|\s+AND\s+/)) {
     const clause = [];
-    for (let ls of cs.trim().replace(/^\(+|\)+$/g, '').split(/\s*\|\s*|\s+OR\s+/)) {
+    for (let ls of cs.trim().replace(/^\(+|\)+$/g, '').split(/\s*\|\s*|\s+(?:OR|V)\s+/)) {
       ls = ls.trim();
       const neg = /^[~!]|^NOT\s+/.test(ls);
       const nm  = ls.replace(/^[~!]\s*|^NOT\s+/, '').trim();
