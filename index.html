@@ -144,12 +144,27 @@
 
     #state-panel {
       border-top: 2px solid var(--blue); background: var(--base);
-      flex-shrink: 0; max-height: 220px; overflow-y: auto;
+      flex-shrink: 0; height: 220px; min-height: 28px;
+      display: flex; flex-direction: column; overflow: hidden;
+      transition: height 0.15s ease;
     }
+    #state-panel.collapsed { height: 28px; }
+    #state-drag-handle {
+      height: 5px; flex-shrink: 0; cursor: row-resize;
+      border-top: 2px solid var(--panel); transition: border-color 0.2s;
+    }
+    #state-drag-handle:hover { border-color: var(--blue); }
     #state-panel h3 {
       font-size: 0.7rem; color: var(--blue); letter-spacing: 0.1em;
-      text-transform: uppercase; padding: 6px 14px 4px;
+      text-transform: uppercase; padding: 0 14px;
+      height: 28px; display: flex; align-items: center;
+      cursor: pointer; user-select: none; flex-shrink: 0;
+      border-bottom: 1px solid var(--panel);
     }
+    #state-panel h3:hover { background: #1e1e30; }
+    #state-chevron { margin-left: auto; font-size: 0.8rem; transition: transform 0.15s; }
+    #state-panel.collapsed #state-chevron { transform: rotate(-90deg); }
+    #state-table-wrap { flex: 1; overflow-y: auto; }
     #state-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
     #state-table th {
       text-align: left; padding: 4px 14px;
@@ -259,17 +274,20 @@
       <div id="step-desc">Ready — enter a formula and click Run.</div>
 
       <div id="state-panel">
-        <h3>Current Assignment</h3>
-        <table id="state-table">
-          <thead>
-            <tr>
-              <th>Variable</th><th>Value</th><th>Level</th><th>Reason</th>
-            </tr>
-          </thead>
-          <tbody id="state-body">
-            <tr><td colspan="4" style="color:var(--muted);padding:8px 14px;">No assignments yet.</td></tr>
-          </tbody>
-        </table>
+        <div id="state-drag-handle"></div>
+        <h3>Current Assignment <span id="state-chevron">▾</span></h3>
+        <div id="state-table-wrap">
+          <table id="state-table">
+            <thead>
+              <tr>
+                <th>Variable</th><th>Value</th><th>Level</th><th>Reason</th>
+              </tr>
+            </thead>
+            <tbody id="state-body">
+              <tr><td colspan="4" style="color:var(--muted);padding:8px 14px;">No assignments yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -747,6 +765,35 @@ function setLog(msg) { document.getElementById('log').textContent = msg; }
     left.style.width = Math.max(280, Math.min(700, startW + e.clientX - startX)) + 'px';
   });
   document.addEventListener('mouseup', () => {
+    dragging = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
+
+// ── State panel: toggle + drag resize ────────────────────────────────────────
+(function () {
+  const panel  = document.getElementById('state-panel');
+  const handle = document.getElementById('state-drag-handle');
+  const header = panel.querySelector('h3');
+
+  header.addEventListener('click', () => panel.classList.toggle('collapsed'));
+
+  let dragging = false, startY = 0, startH = 0;
+  handle.addEventListener('mousedown', e => {
+    if (panel.classList.contains('collapsed')) return;
+    dragging = true; startY = e.clientY; startH = panel.offsetHeight;
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const h = Math.max(28, Math.min(500, startH - (e.clientY - startY)));
+    panel.style.height = h + 'px';
+  });
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
     dragging = false;
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
