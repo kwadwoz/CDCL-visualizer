@@ -518,7 +518,8 @@ function fmtNode(n, isNew) {
     id:    n.id,
     label: n.label,
     title: n.title || '',
-    level: n.level ?? 0,
+    x:     n.x,
+    y:     n.y,
     color: {
       background: n.color,
       border:     borderCol,
@@ -555,15 +556,10 @@ function initNetwork() {
     document.getElementById('network'),
     { nodes: nodeDS, edges: edgeDS },
     {
-      layout: {
-        hierarchical: {
-          enabled: true, direction: 'UD', sortMethod: 'directed',
-          levelSeparation: 130, nodeSpacing: 120, treeSpacing: 160,
-        },
-      },
+      layout:      { hierarchical: false },
       physics:     { enabled: false },
       interaction: { dragNodes: true, zoomView: true, hover: true,
-                     zoomExtent: { min: 0.3, max: 3 } },
+                     zoomExtent: { min: 0.1, max: 3 } },
     }
   );
 }
@@ -581,23 +577,35 @@ function showStep(idx) {
   const curIds  = new Set(s.nodes.map(n => n.id));
   const newIds  = isForward ? new Set([...curIds].filter(id => !prevIds.has(id))) : new Set();
 
-  // Compact levels: raw values are dl*100, dl*100+1, … which vis.js spreads
-  // 13,000 px apart. Map them to 0, 1, 2, … so the graph stays on screen.
+  // Map raw depth values (dl*100, dl*100+1, …) → compact row indices 0,1,2,…
   const sortedLevels = [...new Set(s.nodes.map(n => n.level))].sort((a, b) => a - b);
-  const levelMap = new Map(sortedLevels.map((l, i) => [l, i]));
-  const norm = n => ({ ...n, level: levelMap.get(n.level) ?? 0 });
+  const levelRow = new Map(sortedLevels.map((l, i) => [l, i]));
 
-  // Full replace per step — avoids vis.js re-layout instability from diffs
+  // Group node IDs by row so we can centre each row horizontally
+  const byRow = {};
+  s.nodes.forEach(n => {
+    const r = levelRow.get(n.level) ?? 0;
+    (byRow[r] = byRow[r] || []).push(n.id);
+  });
+
+  const H = 180, V = 150;
+  const withXY = n => {
+    const r    = levelRow.get(n.level) ?? 0;
+    const ids  = byRow[r];
+    const col  = ids.indexOf(n.id);
+    return { ...n, x: (col - (ids.length - 1) / 2) * H, y: r * V };
+  };
+
   nodeDS.clear();
-  nodeDS.add(s.nodes.map(n => fmtNode(norm(n), newIds.has(n.id))));
+  nodeDS.add(s.nodes.map(n => fmtNode(withXY(n), newIds.has(n.id))));
   edgeDS.clear();
   edgeDS.add(s.edges.map(fmtEdge));
 
-  network.fit({ animation: { duration: 250, easingFunction: 'easeInOutQuad' } });
+  network.fit({ animation: false });
 
   if (newIds.size) {
     setTimeout(() => {
-      nodeDS.update(s.nodes.filter(n => newIds.has(n.id)).map(n => fmtNode(norm(n), false)));
+      nodeDS.update(s.nodes.filter(n => newIds.has(n.id)).map(n => fmtNode(withXY(n), false)));
     }, 700);
   }
 
