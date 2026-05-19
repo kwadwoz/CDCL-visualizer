@@ -10,341 +10,446 @@
   <link  rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/codemirror.min.css">
   <link  rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/theme/material-darker.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/codemirror.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/mode/javascript/javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/mode/python/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     :root {
-      --dark:  #1e1e2e; --panel: #313244; --base: #181825;
-      --fg:    #cdd6f4; --blue:  #89b4fa; --green: #a6e3a1;
-      --red:   #f38ba8; --yellow:#f9e2af; --muted: #6c7086;
+      --dark:  #1e1e2e;
+      --panel: #313244;
+      --base:  #181825;
+      --fg:    #cdd6f4;
+      --blue:  #89b4fa;
+      --green: #a6e3a1;
+      --red:   #f38ba8;
+      --yellow:#f9e2af;
+      --muted: #6c7086;
       --font:  'Courier New', Courier, monospace;
     }
+
     html, body { height: 100%; background: var(--dark); color: var(--fg);
                  font-family: var(--font); overflow: hidden; }
-    #app  { display: flex; flex-direction: column; height: 100vh; }
+
+    #app { display: flex; flex-direction: column; height: 100vh; }
+
     header {
       display: flex; align-items: center; gap: 12px;
-      padding: 10px 20px; background: var(--base);
-      border-bottom: 1px solid var(--panel); flex-shrink: 0;
+      padding: 10px 20px;
+      background: var(--base);
+      border-bottom: 1px solid var(--panel);
+      flex-shrink: 0;
     }
-    header h1  { font-size: 1.1rem; color: var(--blue); letter-spacing: .05em; }
-    header span { font-size: .75rem; color: var(--muted); }
+    header h1 { font-size: 1.1rem; color: var(--blue); letter-spacing: 0.05em; }
+    header .subtitle { font-size: 0.75rem; color: var(--muted); }
+
     #main { display: flex; flex: 1; overflow: hidden; }
 
-    /* ── Left panel ── */
-    #left { width: 440px; min-width: 300px; max-width: 600px;
-            display: flex; flex-direction: column;
-            background: var(--dark); border-right: 1px solid var(--panel); overflow: hidden; }
-    .sec-label { font-size: .7rem; color: var(--blue); letter-spacing: .1em;
-                 text-transform: uppercase; padding: 8px 12px 4px;
-                 border-bottom: 1px solid var(--panel); }
-    .sec-label small { color: var(--muted); font-size: .65rem; margin-left: 6px; }
-    #formula-wrap { padding: 8px 10px; border-bottom: 1px solid var(--panel); }
-    #formula { width: 100%; height: 52px; resize: none;
-               background: var(--base); color: var(--fg);
-               border: 1px solid var(--panel); border-radius: 4px;
-               font-family: var(--font); font-size: .9rem;
-               padding: 8px 10px; outline: none; }
-    #formula:focus { border-color: var(--blue); }
-    #code-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-    .CodeMirror  { flex: 1; height: 100% !important; font-size: .82rem; line-height: 1.5;
-                   background: var(--base) !important; }
-    .CodeMirror-scroll { max-height: none; }
-    #controls { display: flex; flex-wrap: wrap; gap: 4px;
-                padding: 8px 10px; border-top: 1px solid var(--panel); background: var(--base); }
-    button { font-family: var(--font); font-size: .78rem;
-             background: var(--panel); color: var(--fg);
-             border: none; border-radius: 4px; padding: 5px 10px;
-             cursor: pointer; transition: background .15s; }
-    button:hover  { background: #45475a; }
-    button#run-btn { background: #1a3a5c; color: var(--blue); font-weight: bold; }
-    button#run-btn:hover { background: #1e4878; }
-    button#play-btn.playing { background: #1a3a2a; color: var(--green); }
-    #step-row { display: flex; align-items: center; gap: 8px;
-                padding: 4px 12px 6px; font-size: .75rem; color: var(--muted);
-                background: var(--base); border-top: 1px solid var(--panel); }
-    #step-counter { margin-left: auto; }
-    #result-box { padding: 8px 12px; border-top: 1px solid var(--panel);
-                  background: var(--base); min-height: 54px; }
-    #result-tag  { font-size: 1rem; font-weight: bold; letter-spacing: .05em; }
-    #result-tag.sat   { color: var(--green); }
-    #result-tag.unsat { color: var(--red); }
-    #assign-text { font-size: .78rem; color: var(--green); margin-top: 3px; word-break: break-all; }
-    #info-text   { font-size: .7rem;  color: var(--muted); margin-top: 2px; }
-    #log { height: 80px; overflow-y: auto; font-size: .72rem; color: var(--red);
-           background: var(--base); border-top: 1px solid var(--panel);
-           padding: 6px 10px; white-space: pre-wrap; word-break: break-all; }
+    #left {
+      width: 420px; min-width: 320px; max-width: 560px;
+      display: flex; flex-direction: column;
+      background: var(--dark);
+      border-right: 1px solid var(--panel);
+      overflow: hidden;
+    }
 
-    /* ── Right panel ── */
-    #resize-handle { width: 5px; cursor: col-resize; background: transparent;
-                     border-left: 2px solid var(--panel); flex-shrink: 0; transition: border-color .2s; }
-    #resize-handle:hover { border-color: var(--blue); }
+    .section-label {
+      font-size: 0.7rem; color: var(--blue); letter-spacing: 0.1em;
+      text-transform: uppercase; padding: 8px 12px 4px;
+      border-bottom: 1px solid var(--panel);
+    }
+    .section-label span { color: var(--muted); font-size: 0.65rem; margin-left: 6px; }
+
+    #formula-wrap { padding: 8px 10px; border-bottom: 1px solid var(--panel); }
+    #formula {
+      width: 100%; height: 52px; resize: none;
+      background: var(--base); color: var(--fg);
+      border: 1px solid var(--panel); border-radius: 4px;
+      font-family: var(--font); font-size: 0.9rem;
+      padding: 8px 10px; outline: none;
+    }
+    #formula:focus { border-color: var(--blue); }
+
+    #code-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .CodeMirror {
+      flex: 1; height: 100% !important;
+      font-size: 0.82rem; line-height: 1.5;
+      background: var(--base) !important;
+    }
+    .CodeMirror-scroll { max-height: none; }
+
+    #controls {
+      display: flex; flex-wrap: wrap; gap: 4px;
+      padding: 8px 10px; border-top: 1px solid var(--panel);
+      background: var(--base);
+    }
+    button {
+      font-family: var(--font); font-size: 0.78rem;
+      background: var(--panel); color: var(--fg);
+      border: none; border-radius: 4px; padding: 5px 10px;
+      cursor: pointer; transition: background 0.15s;
+    }
+    button:hover  { background: #45475a; }
+    button:active { background: var(--muted); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button#run-btn { background: #1a3a5c; color: var(--blue); font-weight: bold; }
+    button#run-btn:hover:not(:disabled) { background: #1e4878; }
+
+    #step-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 4px 12px 6px;
+      font-size: 0.75rem; color: var(--muted);
+      background: var(--base); border-top: 1px solid var(--panel);
+    }
+    #step-counter { margin-left: auto; }
+
+    #result-box {
+      padding: 8px 12px;
+      border-top: 1px solid var(--panel);
+      background: var(--base);
+      min-height: 54px;
+    }
+    #result-tag { font-size: 1rem; font-weight: bold; letter-spacing: 0.05em; }
+    #result-tag.sat   { color: var(--green); }
+    #result-tag.unsat { color: var(--red);   }
+    #assign-text { font-size: 0.78rem; color: var(--green); margin-top: 3px; word-break: break-all; }
+    #info-text   { font-size: 0.7rem;  color: var(--muted); margin-top: 2px; }
+
+    #log {
+      height: 80px; overflow-y: auto; resize: none;
+      font-size: 0.72rem; color: var(--red);
+      background: var(--base); border-top: 1px solid var(--panel);
+      padding: 6px 10px; white-space: pre-wrap; word-break: break-all;
+    }
+
     #right { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-    #graph-header { display: flex; align-items: center; gap: 14px;
-                    padding: 8px 16px; border-bottom: 1px solid var(--panel);
-                    background: var(--base); flex-shrink: 0; }
-    .leg { display: flex; align-items: center; gap: 5px; font-size: .7rem; color: var(--muted); }
+
+    #graph-header {
+      display: flex; align-items: center; gap: 16px;
+      padding: 8px 16px; border-bottom: 1px solid var(--panel);
+      background: var(--base); flex-shrink: 0;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--muted); }
+
     #network-wrap { flex: 1; position: relative; min-height: 0; }
     #network      { width: 100%; height: 100%; }
-    #empty-msg    { position: absolute; inset: 0; display: flex; flex-direction: column;
-                    align-items: center; justify-content: center; pointer-events: none; gap: 8px; }
-    #empty-msg p  { color: var(--muted); font-size: .9rem; }
-    #step-desc { padding: 10px 16px; font-size: .95rem; font-weight: bold;
-                 color: var(--yellow); background: var(--base);
-                 border-top: 1px solid var(--panel); flex-shrink: 0; min-height: 40px; }
-    /* ── State table ── */
-    #state-panel { border-top: 2px solid var(--blue); background: var(--base);
-                   flex-shrink: 0; max-height: 200px; overflow-y: auto; }
-    #state-panel h3 { font-size: .7rem; color: var(--blue); letter-spacing: .1em;
-                      text-transform: uppercase; padding: 6px 14px 4px; }
-    #state-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
-    #state-table th { text-align: left; padding: 4px 14px; color: var(--muted);
-                      font-weight: normal; font-size: .7rem;
-                      border-bottom: 1px solid var(--panel);
-                      position: sticky; top: 0; background: var(--base); }
+
+    #step-desc {
+      padding: 10px 16px; font-size: 0.95rem; font-weight: bold;
+      color: var(--yellow); background: var(--base);
+      border-top: 1px solid var(--panel); flex-shrink: 0;
+      min-height: 40px; letter-spacing: 0.02em;
+    }
+
+    #state-panel {
+      border-top: 2px solid var(--blue); background: var(--base);
+      flex-shrink: 0; max-height: 220px; overflow-y: auto;
+    }
+    #state-panel h3 {
+      font-size: 0.7rem; color: var(--blue); letter-spacing: 0.1em;
+      text-transform: uppercase; padding: 6px 14px 4px;
+    }
+    #state-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    #state-table th {
+      text-align: left; padding: 4px 14px;
+      color: var(--muted); font-weight: normal; font-size: 0.7rem;
+      border-bottom: 1px solid var(--panel); position: sticky; top: 0;
+      background: var(--base);
+    }
     #state-table td { padding: 5px 14px; border-bottom: 1px solid #2a2a3e; }
     #state-table tr:last-child td { border-bottom: none; }
     .val-true  { color: var(--green); font-weight: bold; }
     .val-false { color: var(--red);   font-weight: bold; }
     .td-var    { color: var(--blue);  font-weight: bold; }
-    .td-reason { color: var(--muted); font-size: .75rem; }
+    .td-reason { color: var(--muted); font-size: 0.75rem; }
     .td-level  { color: var(--yellow); }
+
+    #resize-handle {
+      width: 5px; cursor: col-resize; background: transparent;
+      border-left: 2px solid var(--panel); flex-shrink: 0;
+      transition: border-color 0.2s;
+    }
+    #resize-handle:hover { border-color: var(--blue); }
+
+    #empty-msg {
+      position: absolute; inset: 0; display: flex;
+      align-items: center; justify-content: center;
+      pointer-events: none; flex-direction: column; gap: 8px;
+    }
+    #empty-msg p { color: var(--muted); font-size: 0.9rem; }
+
+    #play-btn.playing { background: #1a3a2a; color: var(--green); }
   </style>
 </head>
 <body>
 <div id="app">
+
   <header>
     <h1>⊢ CDCL SAT Visualizer</h1>
-    <span>Step through the implication graph · edit the algorithm freely</span>
+    <span class="subtitle">Step through the implication graph · edit the algorithm freely</span>
   </header>
+
   <div id="main">
 
-    <!-- Left -->
     <div id="left">
-      <div class="sec-label">CNF Formula
-        <small>(A | B | ~C) &amp; (~A | D)  — use &amp; / | / ~</small>
+
+      <div class="section-label">
+        CNF Formula
+        <span>(A | B | ~C) &amp; (~A | D) — use &amp; / | / ~ or AND / OR / NOT</span>
       </div>
       <div id="formula-wrap">
         <textarea id="formula" spellcheck="false">(A | B) &amp; (~A | C) &amp; (~B | ~C)</textarea>
       </div>
-      <div class="sec-label">Algorithm Code
-        <small>— JavaScript, editable, replace with any solver</small>
+
+      <div class="section-label">
+        Algorithm Code
+        <span>— Python, editable, replace CDCL with anything</span>
       </div>
       <div id="code-wrap">
         <textarea id="code-editor"></textarea>
       </div>
+
       <div id="controls">
-        <button id="run-btn"  onclick="runSolver()">▶&nbsp; Run</button>
-        <button onclick="gotoStep(0)">⟪ First</button>
-        <button onclick="prevStep()">◀ Prev</button>
-        <button id="play-btn" onclick="togglePlay()">▷ Play</button>
-        <button onclick="nextStep()">Next ▶</button>
-        <button onclick="gotoStep(steps.length-1)">Last ⟫</button>
-        <button onclick="resetCode()" title="Restore default">↺ Reset</button>
+        <button id="run-btn"   onclick="runSolver()">▶&nbsp; Run</button>
+        <button id="first-btn" onclick="gotoStep(0)">⟪ First</button>
+        <button id="prev-btn"  onclick="prevStep()">◀ Prev</button>
+        <button id="play-btn"  onclick="togglePlay()">▷ Play</button>
+        <button id="next-btn"  onclick="nextStep()">Next ▶</button>
+        <button id="last-btn"  onclick="gotoStep(steps.length - 1)">Last ⟫</button>
+        <button onclick="resetCode()" title="Restore default algorithm">↺ Reset code</button>
       </div>
+
       <div id="step-row">
-        <input id="speed-range" type="range" min="1" max="10" value="5" style="width:80px" title="Speed">
-        <label style="font-size:.7rem">speed</label>
+        <input id="speed-range" type="range" min="1" max="10" value="5"
+               title="Playback speed" style="width:80px">
+        <label style="font-size:0.7rem">speed</label>
         <span id="step-counter">—</span>
       </div>
+
       <div id="result-box">
         <div id="result-tag">—</div>
         <div id="assign-text"></div>
         <div id="info-text"></div>
       </div>
+
       <div id="log"></div>
     </div>
 
     <div id="resize-handle"></div>
 
-    <!-- Right -->
     <div id="right">
       <div id="graph-header">
-        <span style="color:var(--blue);font-size:.8rem;font-weight:bold">Implication Graph</span>
-        <span class="leg"><span style="display:inline-block;width:24px;height:14px;background:var(--blue);border-radius:2px"></span> Decision</span>
-        <span class="leg"><span style="display:inline-block;width:24px;height:14px;background:var(--green);border-radius:50%"></span> Propagation</span>
-        <span class="leg"><span style="display:inline-block;width:14px;height:14px;background:var(--red);border-radius:2px"></span> Conflict ⊥</span>
-        <span style="color:var(--muted);font-size:.65rem">Hover for clause details</span>
-        <button onclick="network&&network.fit()" style="margin-left:auto;font-size:.7rem">⊞ Fit</button>
+        <span style="color:var(--blue);font-size:0.8rem;font-weight:bold;">Implication Graph</span>
+        <span class="legend-item"><span style="display:inline-block;width:28px;height:16px;background:var(--blue);border:2px solid #5a8fd4;border-radius:2px;"></span> Decision</span>
+        <span class="legend-item"><span style="display:inline-block;width:28px;height:16px;background:var(--green);border:2px solid #6db86d;border-radius:50%;"></span> Propagation</span>
+        <span class="legend-item"><span style="display:inline-block;width:16px;height:16px;background:var(--red);border:2px solid #d4687a;border-radius:2px;"></span> Conflict ⊥</span>
+        <span class="legend-item" style="color:var(--muted);font-size:0.65rem;">Hover nodes/edges for details</span>
+        <button onclick="network && network.fit()" style="margin-left:auto;font-size:0.7rem">⊞ Fit</button>
       </div>
+
       <div id="network-wrap">
         <div id="network"></div>
         <div id="empty-msg">
           <p>Run the solver to see the implication graph</p>
-          <p style="font-size:.75rem">Nodes are draggable · scroll to zoom</p>
+          <p style="font-size:0.75rem">Nodes are draggable · scroll to zoom</p>
         </div>
       </div>
+
       <div id="step-desc">Ready — enter a formula and click Run.</div>
+
       <div id="state-panel">
         <h3>Current Assignment</h3>
         <table id="state-table">
-          <thead><tr><th>Variable</th><th>Value</th><th>Level</th><th>Reason</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Variable</th><th>Value</th><th>Level</th><th>Reason</th>
+            </tr>
+          </thead>
           <tbody id="state-body">
-            <tr><td colspan="4" style="color:var(--muted);padding:8px 14px">No assignments yet.</td></tr>
+            <tr><td colspan="4" style="color:var(--muted);padding:8px 14px;">No assignments yet.</td></tr>
           </tbody>
         </table>
       </div>
     </div>
+
   </div>
 </div>
 
 <script>
-// Palette 
-const BLUE='#89b4fa', GREEN='#a6e3a1', RED='#f38ba8';
+const DEFAULT_CODE = `def solve(clauses, num_vars, var_names):
+    clauses = [list(c) for c in clauses]
+    assign  = {}
+    lev     = {}
+    reason  = {}
+    depth   = {}
+    order   = {}
+    stamp   = [0]
+    dl      = 0
+    steps   = []
 
-//  Default CDCL algorithm (JavaScript) 
-const DEFAULT_ALGORITHM = `
+    def vn(var, val):
+        name = var_names[var - 1] if 0 < var <= len(var_names) else f"x{var}"
+        return ("\\u00ac" if not val else "") + name
 
-var result, assignment, steps;
+    def cls(clause):
+        parts = []
+        for l in clause:
+            n = var_names[abs(l)-1] if 0 < abs(l) <= len(var_names) else f"x{abs(l)}"
+            parts.append(("\\u00ac" if l < 0 else "") + n)
+        return "(" + " \\u2228 ".join(parts) + ")"
 
-(function () {
-  var cls2   = clauses.map(function (c) { return c.slice(); });
-  var assign = {}, lev = {}, reason = {}, depth = {}, order = {};
-  var dl = 0, stamp = 0;
-  steps = [];
+    def impl_depth(var):
+        if reason[var] is None:
+            return dl * 100
+        parents = [abs(l) for l in reason[var] if abs(l) != var and abs(l) in depth]
+        return (max((depth[p] for p in parents), default=dl * 100 - 1) + 1)
 
-  function vn(v, val) {
-    var name = (v >= 1 && v <= var_names.length) ? var_names[v - 1] : 'x' + v;
-    return (val ? '' : '\\u00ac') + name;
-  }
+    def snapshot(desc, conflict_lits=None):
+        nodes, edges = [], []
+        for v, val in assign.items():
+            is_dec = reason[v] is None
+            nodes.append({
+                "id":          vn(v, val),
+                "label":       vn(v, val),
+                "title":       f"Decision at level {lev[v]}"
+                               if is_dec else
+                               f"Reason: {cls(reason[v])}",
+                "color":       "#89b4fa" if is_dec else "#a6e3a1",
+                "shape":       "box" if is_dec else "ellipse",
+                "borderWidth": 3 if is_dec else 1.5,
+                "level":       depth[v],
+            })
+        if conflict_lits is not None:
+            conf_depth = max(
+                (depth[abs(l)] for l in conflict_lits if abs(l) in depth),
+                default=dl * 100
+            ) + 1
+            nodes.append({
+                "id": "\\u22a5", "label": "\\u22a5",
+                "title": "Conflict",
+                "color": "#f38ba8", "shape": "box",
+                "borderWidth": 2, "level": conf_depth,
+            })
+        for v, rc in reason.items():
+            if rc is None:
+                continue
+            tgt = vn(v, assign[v])
+            for lit in rc:
+                av = abs(lit)
+                if av != v and av in assign:
+                    edges.append({
+                        "from": vn(av, assign[av]), "to": tgt,
+                        "label": "", "title": cls(rc),
+                    })
+        if conflict_lits is not None:
+            conf_cls = cls(conflict_lits)
+            for lit in conflict_lits:
+                av = abs(lit)
+                if av in assign:
+                    edges.append({
+                        "from": vn(av, assign[av]), "to": "\\u22a5",
+                        "label": "", "title": conf_cls,
+                    })
+        state = [
+            {
+                "var":    var_names[v - 1] if 0 < v <= len(var_names) else f"x{v}",
+                "value":  assign[v],
+                "level":  lev[v],
+                "reason": "Decision" if reason[v] is None else cls(reason[v]),
+            }
+            for v in sorted(assign.keys())
+        ]
+        steps.append({"nodes": nodes, "edges": edges, "label": desc, "state": state})
 
-  function clsStr(c) {
-    return '(' + c.map(function (l) {
-      return (l < 0 ? '\\u00ac' : '') + var_names[Math.abs(l) - 1];
-    }).join(' \\u2228 ') + ')';
-  }
+    def lit_val(lit):
+        v = abs(lit)
+        return None if v not in assign else assign[v] == (lit > 0)
 
-  function implDepth(v) {
-    if (reason[v] === null) return dl * 100;
-    var ps = reason[v].filter(function (l) { return Math.abs(l) !== v && (Math.abs(l) in depth); });
-    return (ps.length ? Math.max.apply(null, ps.map(function (l) { return depth[Math.abs(l)]; })) : dl * 100 - 1) + 1;
-  }
+    def unit_prop():
+        changed = True
+        while changed:
+            changed = False
+            for c in clauses:
+                vals = [lit_val(l) for l in c]
+                if True in vals:
+                    continue
+                if all(v is False for v in vals):
+                    return c
+                unset = [c[i] for i, v in enumerate(vals) if v is None]
+                if len(unset) == 1:
+                    lit = unset[0]
+                    var = abs(lit)
+                    assign[var] = lit > 0
+                    lev[var]    = dl
+                    reason[var] = c
+                    depth[var]  = impl_depth(var)
+                    order[var]  = stamp[0]; stamp[0] += 1
+                    snapshot(f"Propagate  {vn(var, assign[var])}  (level {dl})")
+                    changed = True
+        return None
 
-  function snapshot(desc, confLits) {
-    var nodes = [], edges = [];
-    Object.keys(assign).forEach(function (k) {
-      var v = +k, val = assign[v], isDec = reason[v] === null;
-      nodes.push({
-        id: vn(v, val), label: vn(v, val),
-        title: isDec ? 'Decision at level ' + lev[v] : 'Reason: ' + clsStr(reason[v]),
-        color: isDec ? '${BLUE}' : '${GREEN}',
-        shape: isDec ? 'box' : 'ellipse',
-        borderWidth: isDec ? 3 : 1.5,
-        level: depth[v]
-      });
-    });
-    if (confLits) {
-      var ds = confLits.filter(function(l){return Math.abs(l) in depth;}).map(function(l){return depth[Math.abs(l)];});
-      nodes.push({ id: '\\u22a5', label: '\\u22a5', title: 'Conflict', color: '${RED}', shape: 'box', borderWidth: 2,
-                   level: (ds.length ? Math.max.apply(null, ds) : dl * 100) + 1 });
-    }
-    Object.keys(reason).forEach(function (k) {
-      var v = +k, rc = reason[v];
-      if (!rc) return;
-      var tgt = vn(v, assign[v]);
-      rc.forEach(function (lit) {
-        var av = Math.abs(lit);
-        if (av !== v && (av in assign)) edges.push({ from: vn(av, assign[av]), to: tgt, label: '', title: clsStr(rc) });
-      });
-    });
-    if (confLits) {
-      var cs = clsStr(confLits);
-      confLits.forEach(function (lit) {
-        var av = Math.abs(lit);
-        if (av in assign) edges.push({ from: vn(av, assign[av]), to: '\\u22a5', label: '', title: cs });
-      });
-    }
-    var state = Object.keys(assign).map(function(k){
-      var v=+k;
-      return { var: var_names[v-1]||'x'+v, value: assign[v], level: lev[v],
-               reason: reason[v]===null ? 'Decision' : clsStr(reason[v]) };
-    }).sort(function(a,b){return a.var.localeCompare(b.var);});
-    steps.push({ nodes: nodes, edges: edges, label: desc, state: state });
-  }
+    def analyze(conf):
+        clause = set(conf)
+        seen   = set()
+        for _ in range(1000):
+            at_dl = [l for l in clause
+                     if abs(l) in lev and lev[abs(l)] == dl and abs(l) not in seen]
+            if len(at_dl) <= 1:
+                break
+            lit = max(at_dl, key=lambda l: order.get(abs(l), -1))
+            var = abs(lit)
+            seen.add(var)
+            if reason.get(var):
+                clause = (clause - {lit, -lit}) | (set(reason[var]) - {lit, -lit})
+        learned = list(clause)
+        bt_lvls = [lev[abs(l)] for l in learned
+                   if abs(l) in lev and lev[abs(l)] < dl]
+        return learned, (max(bt_lvls) if bt_lvls else 0)
 
-  function litVal(lit) {
-    var v = Math.abs(lit);
-    return !(v in assign) ? null : assign[v] === (lit > 0);
-  }
+    def backtrack(to_dl):
+        for v in [v for v in list(assign) if lev[v] > to_dl]:
+            del assign[v], lev[v], reason[v], depth[v], order[v]
 
-  function unitProp() {
-    var changed = true;
-    while (changed) {
-      changed = false;
-      for (var i = 0; i < cls2.length; i++) {
-        var c = cls2[i], vals = c.map(litVal);
-        if (vals.indexOf(true) >= 0) continue;
-        if (vals.every(function (x) { return x === false; })) return c;
-        var unset = c.filter(function (_, j) { return vals[j] === null; });
-        if (unset.length === 1) {
-          var lit = unset[0], v = Math.abs(lit);
-          assign[v] = lit > 0; lev[v] = dl; reason[v] = c;
-          var ps = c.filter(function(l){return Math.abs(l)!==v&&(Math.abs(l) in depth);});
-          depth[v] = (ps.length ? Math.max.apply(null,ps.map(function(l){return depth[Math.abs(l)];})) : dl*100-1) + 1;
-          order[v] = stamp++;
-          snapshot('Propagate  ' + vn(v, assign[v]) + '  (level ' + dl + ')');
-          changed = true;
-        }
-      }
-    }
-    return null;
-  }
+    conf = unit_prop()
+    if conf is not None:
+        snapshot("Conflict at level 0 \\u2192 UNSAT", conf)
+        return "UNSAT", {}, steps
 
-  function analyze(conf) {
-    var clause = conf.slice(), seen = {};
-    for (var it = 0; it < 1000; it++) {
-      var atDl = clause.filter(function(l){return (Math.abs(l) in lev)&&lev[Math.abs(l)]===dl&&!seen[Math.abs(l)];});
-      if (atDl.length <= 1) break;
-      var lit = atDl.reduce(function(b,l){return (order[Math.abs(l)]||0)>(order[Math.abs(b)]||0)?l:b;});
-      var v = Math.abs(lit); seen[v] = true;
-      if (reason[v]) {
-        clause = clause.filter(function(l){return l!==lit&&l!==-lit;});
-        reason[v].forEach(function(l){if(l!==lit&&l!==-lit&&clause.indexOf(l)<0)clause.push(l);});
-      }
-    }
-    var btL = clause.filter(function(l){return (Math.abs(l) in lev)&&lev[Math.abs(l)]<dl;}).map(function(l){return lev[Math.abs(l)];});
-    return [clause, btL.length ? Math.max.apply(null, btL) : 0];
-  }
+    while True:
+        unset = [v for v in range(1, num_vars + 1) if v not in assign]
+        if not unset:
+            snapshot("All variables assigned \\u2192 SAT")
+            return "SAT", dict(assign), steps
 
-  function backtrack(to) {
-    Object.keys(assign).forEach(function(k){
-      var v=+k; if(lev[v]>to){delete assign[v];delete lev[v];delete reason[v];delete depth[v];delete order[v];}
-    });
-  }
+        dl += 1
+        var = unset[0]
+        assign[var] = True
+        lev[var]    = dl
+        reason[var] = None
+        depth[var]  = impl_depth(var)
+        order[var]  = stamp[0]; stamp[0] += 1
+        snapshot(f"Decide  {vn(var, True)}  (level {dl})")
 
-  var conf = unitProp();
-  if (conf) { snapshot('Conflict at level 0 \\u2192 UNSAT', conf); result='UNSAT'; assignment={}; return; }
+        conf = unit_prop()
+        while conf is not None:
+            snapshot(f"Conflict at level {dl}", conf)
+            learned, bt = analyze(conf)
+            if dl == 0:
+                return "UNSAT", {}, steps
+            clauses.append(learned)
+            backtrack(bt)
+            dl = bt
+            lits_str = " \\u2228 ".join(
+                ("\\u00ac" if l < 0 else "") + var_names[abs(l) - 1]
+                for l in learned if 0 < abs(l) <= len(var_names)
+            )
+            snapshot(f"Learned  [{lits_str}],  backtrack \\u2192 level {bt}")
+            conf = unit_prop()
 
-  while (true) {
-    var unset=[];
-    for(var v=1;v<=num_vars;v++){if(!(v in assign))unset.push(v);}
-    if (!unset.length) {
-      snapshot('All variables assigned \\u2192 SAT');
-      result='SAT'; assignment={};
-      Object.keys(assign).forEach(function(k){assignment[+k]=assign[+k];});
-      return;
-    }
-    dl++; var v=unset[0];
-    assign[v]=true; lev[v]=dl; reason[v]=null; depth[v]=dl*100; order[v]=stamp++;
-    snapshot('Decide  ' + vn(v, true) + '  (level ' + dl + ')');
+result, assignment, steps = solve(clauses, num_vars, var_names)`;
 
-    conf = unitProp();
-    while (conf) {
-      snapshot('Conflict at level ' + dl, conf);
-      var res2=analyze(conf), learned=res2[0], bt=res2[1];
-      if (dl===0) { result='UNSAT'; assignment={}; return; }
-      cls2.push(learned); backtrack(bt); dl=bt;
-      var ls=learned.filter(function(l){return Math.abs(l)>=1&&Math.abs(l)<=var_names.length;})
-        .map(function(l){return(l<0?'\\u00ac':'')+var_names[Math.abs(l)-1];}).join(' \\u2228 ');
-      snapshot('Learned  [' + ls + '],  backtrack \\u2192 level ' + bt);
-      conf = unitProp();
-    }
-  }
-})();
-`.trim();
-
-//  Formula parser 
+// ── Formula parser (JS) ──────────────────────────────────────────────────────
 function parseFormula(text) {
   text = text.trim();
   const raw = text.match(/\b(?!AND\b|OR\b|NOT\b)[A-Za-z]\w*/g) || [];
@@ -366,84 +471,134 @@ function parseFormula(text) {
   return { clauses, varNames };
 }
 
-// App state
-let steps = [], stepIdx = 0, network = null, nodeDS = null, edgeDS = null, playTimer = null;
+// ── State ────────────────────────────────────────────────────────────────────
+let steps   = [];
+let stepIdx = 0;
+let network = null;
+let nodeDS  = null;
+let edgeDS  = null;
+let playTimer = null;
+let pyodide   = null;
 
-//  CodeMirror 
+// ── CodeMirror ───────────────────────────────────────────────────────────────
 const editor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
-  mode: 'javascript', theme: 'material-darker',
-  lineNumbers: true, indentUnit: 2, tabSize: 2, autofocus: false,
+  mode:        'python',
+  theme:       'material-darker',
+  lineNumbers: true,
+  indentUnit:  4,
+  tabSize:     4,
+  indentWithTabs: false,
+  autofocus:   false,
+  lineWrapping: false,
 });
-editor.setValue(DEFAULT_ALGORITHM);
-editor.getWrapperElement().style.cssText = 'flex:1;display:flex;flex-direction:column;overflow:hidden;';
+editor.setValue(DEFAULT_CODE);
+editor.getWrapperElement().style.cssText =
+  'flex:1;display:flex;flex-direction:column;overflow:hidden;';
 editor.getScrollerElement().style.flex = '1';
 
-// vis-network helpers 
+// ── Pyodide init ─────────────────────────────────────────────────────────────
+(async function () {
+  const btn  = document.getElementById('run-btn');
+  const desc = document.getElementById('step-desc');
+  btn.textContent = '⏳ Loading Python…';
+  btn.disabled    = true;
+  desc.textContent = 'Loading Python runtime — this takes a few seconds…';
+  pyodide = await loadPyodide();
+  btn.textContent  = '▶  Run';
+  btn.disabled     = false;
+  desc.textContent = 'Ready — enter a formula and click Run.';
+})();
+
+// ── Node / edge formatters ───────────────────────────────────────────────────
 function fmtNode(n, isNew) {
-  const bdr = isNew ? '#f9e2af'
-    : n.color === BLUE  ? '#5a8fd4'
-    : n.color === GREEN ? '#6db86d' : '#d4687a';
+  const borderCol = isNew ? '#f9e2af'
+    : n.color === '#89b4fa' ? '#5a8fd4'
+    : n.color === '#a6e3a1' ? '#6db86d' : '#d4687a';
   return {
-    id: n.id, label: n.label, title: n.title || '', level: n.level ?? 0,
-    color: { background: n.color, border: bdr,
-             highlight: { background: n.color, border: '#fff' },
-             hover:     { background: n.color, border: '#fff' } },
-    shape: n.shape || 'ellipse',
-    font:  { color: n.color === GREEN ? '#1e3a1e' : '#a6e3a1', size: 16, bold: true },
+    id:    n.id,
+    label: n.label,
+    title: n.title || '',
+    level: n.level ?? 0,
+    color: {
+      background: n.color,
+      border:     borderCol,
+      highlight: { background: n.color, border: '#ffffff' },
+      hover:     { background: n.color, border: '#ffffff' },
+    },
+    shape:       n.shape || 'ellipse',
+    font:  { color: n.color === '#a6e3a1' ? '#1e3a1e' : '#a6e3a1', size: 16, bold: true },
     borderWidth: isNew ? 4 : (n.borderWidth ?? 2),
     margin: 12,
   };
 }
 
 function fmtEdge(e, i) {
-  return { id: i, from: e.from, to: e.to, label: e.label || '', title: e.title || '',
-           arrows: 'to', color: { color: '#6c7086', highlight: '#cdd6f4' },
-           smooth: { type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.3 },
-           font:   { color: '#cdd6f4', size: 9, align: 'middle' } };
+  return {
+    id:     i,
+    from:   e.from,
+    to:     e.to,
+    label:  e.label || '',
+    title:  e.title || '',
+    arrows: 'to',
+    color:  { color: '#6c7086', highlight: '#cdd6f4' },
+    smooth: { type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.3 },
+    font:   { color: '#cdd6f4', size: 9, align: 'middle' },
+  };
 }
 
+// ── Network ──────────────────────────────────────────────────────────────────
 function initNetwork() {
   if (network) network.destroy();
   nodeDS = new vis.DataSet([]);
   edgeDS = new vis.DataSet([]);
-  network = new vis.Network(document.getElementById('network'),
+  network = new vis.Network(
+    document.getElementById('network'),
     { nodes: nodeDS, edges: edgeDS },
-    { layout: { hierarchical: { enabled: true, direction: 'UD', sortMethod: 'directed',
-                                levelSeparation: 130, nodeSpacing: 120, treeSpacing: 160 } },
-      physics: { enabled: false },
-      interaction: { dragNodes: true, zoomView: true, hover: true } });
+    {
+      layout: {
+        hierarchical: {
+          enabled: true, direction: 'UD', sortMethod: 'directed',
+          levelSeparation: 130, nodeSpacing: 120, treeSpacing: 160,
+        },
+      },
+      physics:     { enabled: false },
+      interaction: { dragNodes: true, zoomView: true, hover: true,
+                     zoomExtent: { min: 0.3, max: 3 } },
+    }
+  );
 }
 
-//  Step renderer
+// ── Step renderer ────────────────────────────────────────────────────────────
 function showStep(idx) {
   if (!steps.length) return;
   idx = Math.max(0, Math.min(idx, steps.length - 1));
-  const isForward = idx >= stepIdx;
   stepIdx = idx;
 
   const s    = steps[idx];
-  const prev = idx > 0 ? steps[idx - 1] : { nodes: [] };
+  const prev = idx > 0 ? steps[idx - 1] : { nodes: [], edges: [] };
+
   const prevIds = new Set(prev.nodes.map(n => n.id));
   const curIds  = new Set(s.nodes.map(n => n.id));
-  const newIds  = isForward ? new Set([...curIds].filter(id => !prevIds.has(id))) : new Set();
+  const newIds  = new Set([...curIds].filter(id => !prevIds.has(id)));
+  const gone    = nodeDS.getIds().filter(id => !curIds.has(id));
 
-  // KEY FIX: remove every node not in the current step (not just diff with prev)
-  const toRemove = nodeDS.getIds().filter(id => !curIds.has(id));
-  if (toRemove.length) nodeDS.remove(toRemove);
+  nodeDS.remove(gone);
   nodeDS.update(s.nodes.map(n => fmtNode(n, newIds.has(n.id))));
   edgeDS.clear();
   edgeDS.update(s.edges.map(fmtEdge));
 
-  // Fit and enforce a minimum readable scale
   network.fit({ animation: { duration: 350, easingFunction: 'easeInOutQuad' } });
   setTimeout(() => {
-    if (network && network.getScale() < 0.5)
-      network.moveTo({ scale: 0.5, animation: { duration: 200 } });
+    if (network && network.getScale() < 0.55)
+      network.moveTo({ scale: 0.55, animation: { duration: 200 } });
   }, 400);
 
-  // Remove new-node highlight after 700 ms
   if (newIds.size) {
-    setTimeout(() => nodeDS.update(s.nodes.filter(n => newIds.has(n.id)).map(n => fmtNode(n, false))), 700);
+    setTimeout(() => {
+      nodeDS.update(
+        s.nodes.filter(n => newIds.has(n.id)).map(n => fmtNode(n, false))
+      );
+    }, 700);
   }
 
   document.getElementById('step-counter').textContent = `Step ${idx + 1} / ${steps.length}`;
@@ -457,11 +612,11 @@ function showStep(idx) {
       <td class="td-level">${r.level}</td>
       <td class="td-reason">${r.reason}</td>
     </tr>`).join('');
-  document.getElementById('state-body').innerHTML = rows ||
-    '<tr><td colspan="4" style="color:var(--muted);padding:8px 14px">No assignments yet.</td></tr>';
+  document.getElementById('state-body').innerHTML =
+    rows || '<tr><td colspan="4" style="color:var(--muted);padding:8px 14px;">No assignments yet.</td></tr>';
 }
 
-//  Navigation
+// ── Navigation ───────────────────────────────────────────────────────────────
 function gotoStep(i) { showStep(i); }
 function prevStep()  { showStep(stepIdx - 1); }
 function nextStep()  { showStep(stepIdx + 1); }
@@ -469,75 +624,107 @@ function nextStep()  { showStep(stepIdx + 1); }
 function togglePlay() {
   const btn = document.getElementById('play-btn');
   if (playTimer) {
-    clearInterval(playTimer); playTimer = null;
-    btn.textContent = '▷ Play'; btn.classList.remove('playing');
+    clearInterval(playTimer);
+    playTimer = null;
+    btn.textContent = '▷ Play';
+    btn.classList.remove('playing');
   } else {
-    btn.textContent = '⏸ Pause'; btn.classList.add('playing');
-    const ms = (11 - parseInt(document.getElementById('speed-range').value)) * 120;
+    btn.textContent = '⏸ Pause';
+    btn.classList.add('playing');
+    const speed = 11 - parseInt(document.getElementById('speed-range').value);
     playTimer = setInterval(() => {
-      if (stepIdx >= steps.length - 1) togglePlay(); else nextStep();
-    }, ms);
+      if (stepIdx >= steps.length - 1) togglePlay();
+      else nextStep();
+    }, speed * 120);
   }
 }
 
-// Run solver
-function runSolver() {
+// ── Run solver (Pyodide) ─────────────────────────────────────────────────────
+async function runSolver() {
   if (playTimer) togglePlay();
-  const formulaText = document.getElementById('formula').value.trim();
-  if (!formulaText) { setLog('Formula is empty.'); return; }
+  if (!pyodide) { setLog('Python runtime is still loading…'); return; }
 
-  let parsed;
-  try { parsed = parseFormula(formulaText); }
-  catch (e) { setLog('Parse error: ' + e.message); return; }
-
-  const { clauses, varNames } = parsed;
-  if (!clauses.length) { setLog('No clauses found — check formula syntax.'); return; }
+  const formula = document.getElementById('formula').value.trim();
+  const code    = editor.getValue();
 
   setLog('');
-  const code = editor.getValue();
-  let out;
-  try {
-    // Wrap code so variables declared with var/let/const are returned
-    const wrapped = code + '\n;return { result: result, assignment: assignment, steps: steps };';
-    const fn = new Function('clauses', 'num_vars', 'var_names', wrapped);
-    out = fn(clauses.map(c => [...c]), varNames.length, varNames);
-  } catch (e) {
-    setLog('Algorithm error:\n' + e.toString());
+  document.getElementById('result-tag').textContent  = '…';
+  document.getElementById('result-tag').className    = '';
+  document.getElementById('assign-text').textContent = '';
+  document.getElementById('info-text').textContent   = '';
+
+  if (!formula) {
+    setLog('Formula is empty.');
+    document.getElementById('result-tag').textContent = '—';
     return;
   }
 
-  if (!out || out.result == null) { setLog('Algorithm did not set result.'); return; }
-
-  steps   = out.steps || [];
-  stepIdx = 0;
-  initNetwork();
-
-  const tag = document.getElementById('result-tag');
-  if (out.result === 'SAT') {
-    tag.textContent = '✓  SATISFIABLE'; tag.className = 'sat';
-    const asgn = out.assignment || {};
-    document.getElementById('assign-text').textContent =
-      varNames.map((n, i) => n + '=' + (asgn[i + 1] ? 'T' : 'F')).join('   ');
-  } else if (out.result === 'UNSAT') {
-    tag.textContent = '✗  UNSATISFIABLE'; tag.className = 'unsat';
-    document.getElementById('assign-text').textContent = 'No satisfying assignment exists.';
-  } else {
-    tag.textContent = out.result; tag.className = '';
-    document.getElementById('assign-text').textContent = '';
+  let clauses, varNames;
+  try {
+    ({ clauses, varNames } = parseFormula(formula));
+  } catch (e) {
+    setLog('Parse error: ' + e.message);
+    document.getElementById('result-tag').textContent = '—';
+    return;
   }
-  document.getElementById('info-text').textContent =
-    `${clauses.length} clauses · ${varNames.length} variables · ${steps.length} steps`;
-  document.getElementById('step-counter').textContent =
-    steps.length ? `Step 1 / ${steps.length}` : 'No steps';
+  if (!clauses.length) {
+    setLog('No clauses found — check formula syntax.');
+    document.getElementById('result-tag').textContent = '—';
+    return;
+  }
 
-  if (steps.length) showStep(0);
+  try {
+    pyodide.globals.set('clauses',   pyodide.toPy(clauses));
+    pyodide.globals.set('num_vars',  varNames.length);
+    pyodide.globals.set('var_names', pyodide.toPy(varNames));
+
+    const fullCode = code + `
+import json as _json
+_named = {}
+for _k, _v in assignment.items():
+    _n = var_names[_k - 1] if 0 < _k <= len(var_names) else f'x{_k}'
+    _named[_n] = bool(_v)
+_out = _json.dumps({"result": result, "assignment": _named, "steps": steps})
+`;
+    await pyodide.runPythonAsync(fullCode);
+    const out = JSON.parse(pyodide.globals.get('_out'));
+
+    steps   = out.steps || [];
+    stepIdx = 0;
+    initNetwork();
+
+    const tag = document.getElementById('result-tag');
+    if (out.result === 'SAT') {
+      tag.textContent = '✓  SATISFIABLE';
+      tag.className   = 'sat';
+      document.getElementById('assign-text').textContent =
+        Object.entries(out.assignment).map(([k, v]) => `${k}=${v ? 'T' : 'F'}`).join('   ');
+    } else if (out.result === 'UNSAT') {
+      tag.textContent = '✗  UNSATISFIABLE';
+      tag.className   = 'unsat';
+      document.getElementById('assign-text').textContent = 'No satisfying assignment exists.';
+    } else {
+      tag.textContent = out.result || '—';
+      tag.className   = '';
+    }
+
+    document.getElementById('info-text').textContent =
+      `${clauses.length} clauses · ${varNames.length} variables · ${steps.length} steps`;
+    document.getElementById('step-counter').textContent =
+      steps.length ? `Step 1 / ${steps.length}` : 'No steps';
+
+    if (steps.length) showStep(0);
+  } catch (e) {
+    setLog('Algorithm error:\n' + (e.message || String(e)));
+    document.getElementById('result-tag').textContent = '—';
+  }
 }
 
-//  Helpers
-function resetCode() { editor.setValue(DEFAULT_ALGORITHM); }
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function resetCode() { editor.setValue(DEFAULT_CODE); }
 function setLog(msg) { document.getElementById('log').textContent = msg; }
 
-//  Resizable panel
+// ── Resizable panel ───────────────────────────────────────────────────────────
 (function () {
   const handle = document.getElementById('resize-handle');
   const left   = document.getElementById('left');
@@ -552,13 +739,16 @@ function setLog(msg) { document.getElementById('log').textContent = msg; }
     left.style.width = Math.max(280, Math.min(700, startW + e.clientX - startX)) + 'px';
   });
   document.addEventListener('mouseup', () => {
-    dragging = false; document.body.style.cursor = ''; document.body.style.userSelect = '';
+    dragging = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
   });
 })();
 
-//  Keyboard shortcuts
+// ── Keyboard shortcuts ────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
-  if (e.target.closest('.CodeMirror')) return;
+  if (e.target.classList.contains('CodeMirror-code')) return;
+  if (e.target.tagName === 'TEXTAREA') return;
   if (e.key === 'ArrowRight') nextStep();
   if (e.key === 'ArrowLeft')  prevStep();
   if (e.key === 'Enter' && e.ctrlKey) runSolver();
