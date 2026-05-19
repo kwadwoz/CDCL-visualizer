@@ -12,7 +12,7 @@ app = Flask(__name__)
 
 # ── Default algorithm shown in the editable code editor ──────────────────────
 DEFAULT_ALGORITHM = """\
-# ════════════════════════════════════════════════════════════════════════
+
 #  ALGORITHM CODE — edit or replace with any solver you like!
 #
 #  Variables in scope when this runs:
@@ -33,7 +33,7 @@ DEFAULT_ALGORITHM = """\
 #      "label": str }          ← description shown below the graph
 #
 #  Shapes:  "diamond" = decision   "dot" = propagation   "square" = conflict ⊥
-# ════════════════════════════════════════════════════════════════════════
+
 
 def solve(clauses, num_vars, var_names):
     clauses = [list(c) for c in clauses]
@@ -173,7 +173,7 @@ def solve(clauses, num_vars, var_names):
         for v in [v for v in list(assign) if lev[v] > to_dl]:
             del assign[v], lev[v], reason[v], depth[v], order[v]
 
-    # ── main CDCL loop ───────────────────────────────────────────────────────
+    # main CDCL loop 
     conf = unit_prop()
     if conf is not None:
         snapshot("Conflict at level 0 → UNSAT", conf)
@@ -214,7 +214,7 @@ result, assignment, steps = solve(clauses, num_vars, var_names)
 """
 
 
-# ── Formula parser ─────────────────────────────────────────────────────────────
+# Formula parser 
 def parse_formula(text: str):
     """
     Parse  (A | B | ~C) & (~A | D)  into (clauses, var_names).
@@ -247,7 +247,7 @@ def parse_formula(text: str):
     return clauses, var_names
 
 
-# ── Routes ─────────────────────────────────────────────────────────────────────
+# Routes 
 @app.route('/')
 def index():
     return render_template('index.html', default_code=DEFAULT_ALGORITHM)
