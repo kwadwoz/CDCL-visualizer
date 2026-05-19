@@ -572,32 +572,32 @@ function initNetwork() {
 function showStep(idx) {
   if (!steps.length) return;
   idx = Math.max(0, Math.min(idx, steps.length - 1));
+  const isForward = idx >= stepIdx;
   stepIdx = idx;
 
-  const s    = steps[idx];
-  const prev = idx > 0 ? steps[idx - 1] : { nodes: [], edges: [] };
-
+  const s     = steps[idx];
+  const prev  = idx > 0 ? steps[idx - 1] : { nodes: [], edges: [] };
   const prevIds = new Set(prev.nodes.map(n => n.id));
   const curIds  = new Set(s.nodes.map(n => n.id));
-  const newIds  = new Set([...curIds].filter(id => !prevIds.has(id)));
-  const gone    = nodeDS.getIds().filter(id => !curIds.has(id));
+  const newIds  = isForward ? new Set([...curIds].filter(id => !prevIds.has(id))) : new Set();
 
-  nodeDS.remove(gone);
-  nodeDS.update(s.nodes.map(n => fmtNode(n, newIds.has(n.id))));
+  // Compact levels: raw values are dl*100, dl*100+1, … which vis.js spreads
+  // 13,000 px apart. Map them to 0, 1, 2, … so the graph stays on screen.
+  const sortedLevels = [...new Set(s.nodes.map(n => n.level))].sort((a, b) => a - b);
+  const levelMap = new Map(sortedLevels.map((l, i) => [l, i]));
+  const norm = n => ({ ...n, level: levelMap.get(n.level) ?? 0 });
+
+  // Full replace per step — avoids vis.js re-layout instability from diffs
+  nodeDS.clear();
+  nodeDS.add(s.nodes.map(n => fmtNode(norm(n), newIds.has(n.id))));
   edgeDS.clear();
-  edgeDS.update(s.edges.map(fmtEdge));
+  edgeDS.add(s.edges.map(fmtEdge));
 
-  network.fit({ animation: { duration: 350, easingFunction: 'easeInOutQuad' } });
-  setTimeout(() => {
-    if (network && network.getScale() < 0.55)
-      network.moveTo({ scale: 0.55, animation: { duration: 200 } });
-  }, 400);
+  network.fit({ animation: { duration: 250, easingFunction: 'easeInOutQuad' } });
 
   if (newIds.size) {
     setTimeout(() => {
-      nodeDS.update(
-        s.nodes.filter(n => newIds.has(n.id)).map(n => fmtNode(n, false))
-      );
+      nodeDS.update(s.nodes.filter(n => newIds.has(n.id)).map(n => fmtNode(norm(n), false)));
     }, 700);
   }
 
