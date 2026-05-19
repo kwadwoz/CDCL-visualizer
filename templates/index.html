@@ -310,7 +310,7 @@ function createNetwork(nodes, edges) {
         hover:     { background: n.color, border: '#ffffff' },
       },
       shape:       n.shape || 'ellipse',   // "box", "ellipse" — label is inside
-      font: { color: '#181825', size: 14, bold: true },
+      font: { color: n.color === '#a6e3a1' ? '#1e3a1e' : '#a6e3a1', size: 15, bold: true },
       borderWidth: n.borderWidth ?? 2,
       margin:      8,
     }))),
