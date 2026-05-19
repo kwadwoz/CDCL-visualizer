@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CDCL SAT Visualizer</title>
+
+  <!-- vis-network (interactive graph) -->
+  <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+
+  <!-- CodeMirror (code editor) -->
+  <link  rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/codemirror.min.css">
+  <link  rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/theme/material-darker.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/mode/python/python.min.js"></script>
+
+  <style>
+    /* ── Reset & base ──────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --dark:  #1e1e2e;
+      --panel: #313244;
+      --base:  #181825;
+      --fg:    #cdd6f4;
+      --blue:  #89b4fa;
+      --green: #a6e3a1;
+      --red:   #f38ba8;
+      --yellow:#f9e2af;
+      --muted: #6c7086;
+      --font:  'Courier New', Courier, monospace;
+    }
+
+    html, body { height: 100%; background: var(--dark); color: var(--fg);
+                 font-family: var(--font); overflow: hidden; }
+
+    /* ── Layout ────────────────────────────────────────────────────────────── */
+    #app { display: flex; flex-direction: column; height: 100vh; }
+
+    header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 20px;
+      background: var(--base);
+      border-bottom: 1px solid var(--panel);
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 1.1rem; color: var(--blue); letter-spacing: 0.05em; }
+    header .subtitle { font-size: 0.75rem; color: var(--muted); }
+
+    #main { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Left panel ────────────────────────────────────────────────────────── */
+    #left {
+      width: 420px; min-width: 320px; max-width: 560px;
+      display: flex; flex-direction: column;
+      background: var(--dark);
+      border-right: 1px solid var(--panel);
+      overflow: hidden;
+    }
+
+    .section-label {
+      font-size: 0.7rem; color: var(--blue); letter-spacing: 0.1em;
+      text-transform: uppercase; padding: 8px 12px 4px;
+      border-bottom: 1px solid var(--panel);
+    }
+    .section-label span { color: var(--muted); font-size: 0.65rem; margin-left: 6px; }
+
+    #formula-wrap { padding: 8px 10px; border-bottom: 1px solid var(--panel); }
+    #formula {
+      width: 100%; height: 52px; resize: none;
+      background: var(--base); color: var(--fg);
+      border: 1px solid var(--panel); border-radius: 4px;
+      font-family: var(--font); font-size: 0.9rem;
+      padding: 8px 10px;
+      outline: none;
+    }
+    #formula:focus { border-color: var(--blue); }
+
+    /* CodeMirror overrides */
+    #code-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .CodeMirror {
+      flex: 1; height: 100% !important;
+      font-size: 0.82rem; line-height: 1.5;
+      background: var(--base) !important;
+    }
+    .CodeMirror-scroll { max-height: none; }
+
+    /* Controls */
+    #controls {
+      display: flex; flex-wrap: wrap; gap: 4px;
+      padding: 8px 10px; border-top: 1px solid var(--panel);
+      background: var(--base);
+    }
+    button {
+      font-family: var(--font); font-size: 0.78rem;
+      background: var(--panel); color: var(--fg);
+      border: none; border-radius: 4px; padding: 5px 10px;
+      cursor: pointer; transition: background 0.15s;
+    }
+    button:hover  { background: #45475a; }
+    button:active { background: var(--muted); }
+    button#run-btn { background: #1a3a5c; color: var(--blue); font-weight: bold; }
+    button#run-btn:hover { background: #1e4878; }
+
+    #step-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 4px 12px 6px;
+      font-size: 0.75rem; color: var(--muted);
+      background: var(--base); border-top: 1px solid var(--panel);
+    }
+    #step-counter { margin-left: auto; }
+
+    /* ── Result box ─────────────────────────────────────────────────────────── */
+    #result-box {
+      padding: 8px 12px;
+      border-top: 1px solid var(--panel);
+      background: var(--base);
+      min-height: 54px;
+    }
+    #result-tag {
+      font-size: 1rem; font-weight: bold; letter-spacing: 0.05em;
+    }
+    #result-tag.sat  { color: var(--green); }
+    #result-tag.unsat{ color: var(--red);   }
+    #assign-text { font-size: 0.78rem; color: var(--green); margin-top: 3px; word-break: break-all; }
+    #info-text   { font-size: 0.7rem;  color: var(--muted); margin-top: 2px; }
+
+    /* ── Log / errors ───────────────────────────────────────────────────────── */
+    #log {
+      height: 80px; overflow-y: auto; resize: none;
+      font-size: 0.72rem; color: var(--red);
+      background: var(--base); border-top: 1px solid var(--panel);
+      padding: 6px 10px; white-space: pre-wrap; word-break: break-all;
+    }
+
+    /* ── Right panel ────────────────────────────────────────────────────────── */
+    #right { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    #graph-header {
+      display: flex; align-items: center; gap: 16px;
+      padding: 8px 16px; border-bottom: 1px solid var(--panel);
+      background: var(--base); flex-shrink: 0;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--muted); }
+    .legend-dot {
+      width: 14px; height: 14px; border-radius: 50%;
+      display: inline-block; flex-shrink: 0;
+    }
+    .legend-diamond {
+      width: 12px; height: 12px; background: var(--blue);
+      transform: rotate(45deg); display: inline-block; flex-shrink: 0;
+    }
+    .legend-square {
+      width: 13px; height: 13px; background: var(--red);
+      border-radius: 2px; display: inline-block; flex-shrink: 0;
+    }
+
+    #network { flex: 1; }
+
+    #step-desc {
+      padding: 6px 16px; font-size: 0.82rem; color: var(--yellow);
+      background: var(--base); border-top: 1px solid var(--panel);
+      min-height: 32px; flex-shrink: 0;
+    }
+
+    /* resize handle */
+    #resize-handle {
+      width: 5px; cursor: col-resize; background: transparent;
+      border-left: 2px solid var(--panel); flex-shrink: 0;
+      transition: border-color 0.2s;
+    }
+    #resize-handle:hover { border-color: var(--blue); }
+
+    /* empty state */
+    #empty-msg {
+      position: absolute; inset: 0; display: flex;
+      align-items: center; justify-content: center;
+      pointer-events: none; flex-direction: column; gap: 8px;
+    }
+    #empty-msg p { color: var(--muted); font-size: 0.9rem; }
+    #network-wrap { position: relative; flex: 1; }
+
+    /* auto-play */
+    #play-btn.playing { background: #1a3a2a; color: var(--green); }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <header>
+    <h1>⊢ CDCL SAT Visualizer</h1>
+    <span class="subtitle">Step through the implication graph · edit the algorithm freely</span>
+  </header>
+
+  <div id="main">
+
+    <!-- ── Left panel ──────────────────────────────────────────────────── -->
+    <div id="left">
+
+      <div class="section-label">
+        CNF Formula
+        <span>(A | B | ~C) &amp; (~A | D) — use &amp; / | / ~ or AND / OR / NOT</span>
+      </div>
+      <div id="formula-wrap">
+        <textarea id="formula" spellcheck="false">(A | B) &amp; (~A | C) &amp; (~B | ~C)</textarea>
+      </div>
+
+      <div class="section-label">
+        Algorithm Code
+        <span>— editable, replace CDCL with anything</span>
+      </div>
+      <div id="code-wrap">
+        <textarea id="code-editor">{{ default_code }}</textarea>
+      </div>
+
+      <div id="controls">
+        <button id="run-btn"   onclick="runSolver()">▶&nbsp; Run</button>
+        <button id="first-btn" onclick="gotoStep(0)">⟪ First</button>
+        <button id="prev-btn"  onclick="prevStep()">◀ Prev</button>
+        <button id="play-btn"  onclick="togglePlay()">▷ Play</button>
+        <button id="next-btn"  onclick="nextStep()">Next ▶</button>
+        <button id="last-btn"  onclick="gotoStep(steps.length - 1)">Last ⟫</button>
+        <button onclick="resetCode()" title="Restore default algorithm">↺ Reset code</button>
+      </div>
+
+      <div id="step-row">
+        <input id="speed-range" type="range" min="1" max="10" value="5"
+               title="Playback speed" style="width:80px">
+        <label style="font-size:0.7rem">speed</label>
+        <span id="step-counter">—</span>
+      </div>
+
+      <div id="result-box">
+        <div id="result-tag">—</div>
+        <div id="assign-text"></div>
+        <div id="info-text"></div>
+      </div>
+
+      <div id="log"></div>
+    </div>
+
+    <!-- resize handle -->
+    <div id="resize-handle"></div>
+
+    <!-- ── Right panel (graph) ───────────────────────────────────────── -->
+    <div id="right">
+      <div id="graph-header">
+        <span style="color:var(--blue);font-size:0.8rem;font-weight:bold;">Implication Graph</span>
+        <span class="legend-item"><span class="legend-diamond"></span> Decision</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--green)"></span> Propagation</span>
+        <span class="legend-item"><span class="legend-square"></span> Conflict ⊥</span>
+        <button onclick="network && network.fit()" style="margin-left:auto;font-size:0.7rem">⊞ Fit</button>
+      </div>
+
+      <div id="network-wrap">
+        <div id="network"></div>
+        <div id="empty-msg">
+          <p>Run the solver to see the implication graph</p>
+          <p style="font-size:0.75rem">Nodes are draggable · scroll to zoom</p>
+        </div>
+      </div>
+
+      <div id="step-desc">Ready — enter a formula and click Run.</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+let steps       = [];
+let stepIdx     = 0;
+let network     = null;
+let playTimer   = null;
+const defaultCode = {{ default_code | tojson }};
+
+// ── CodeMirror setup ─────────────────────────────────────────────────────────
+const editor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
+  mode:        'python',
+  theme:       'material-darker',
+  lineNumbers: true,
+  indentUnit:  4,
+  tabSize:     4,
+  indentWithTabs: false,
+  autofocus:   false,
+  lineWrapping: false,
+});
+// Make CodeMirror fill its parent flex container
+editor.getWrapperElement().style.cssText =
+  'flex:1;display:flex;flex-direction:column;overflow:hidden;';
+editor.getScrollerElement().style.flex = '1';
+
+// ── vis-network setup ────────────────────────────────────────────────────────
+function createNetwork(nodes, edges) {
+  const container = document.getElementById('network');
+  const data = {
+    nodes: new vis.DataSet(nodes.map(n => ({
+      id:    n.id,
+      label: n.label,
+      level: n.level ?? 0,
+      color: {
+        background: n.color,
+        border:     n.color,
+        highlight:  { background: n.color, border: '#ffffff' },
+        hover:      { background: n.color, border: '#ffffff' },
+      },
+      shape:     n.shape === 'diamond' ? 'diamond'
+               : n.shape === 'square'  ? 'square'
+               : 'dot',
+      size:      n.shape === 'diamond' ? 22 : 18,
+      font: { color: '#181825', size: 13, bold: true },
+      borderWidth: 2,
+    }))),
+    edges: new vis.DataSet(edges.map((e, i) => ({
+      id:     i,
+      from:   e.from,
+      to:     e.to,
+      label:  e.label || '',
+      arrows: 'to',
+      color:  { color: '#6c7086', highlight: '#cdd6f4' },
+      smooth: { type: 'cubicBezier', forceDirection: 'horizontal', roundness: 0.3 },
+      font:   { color: '#cdd6f4', size: 9, align: 'middle' },
+    }))),
+  };
+  const options = {
+    layout: {
+      hierarchical: {
+        enabled:         true,
+        direction:       'LR',
+        sortMethod:      'directed',
+        levelSeparation: 160,
+        nodeSpacing:     90,
+        treeSpacing:     120,
+      },
+    },
+    physics:     { enabled: false },
+    interaction: { dragNodes: true, zoomView: true, hover: true },
+  };
+  if (network) network.destroy();
+  network = new vis.Network(container, data, options);
+  network.fit({ animation: { duration: 400, easingFunction: 'easeInOutQuad' } });
+}
+
+// ── Render a single step ─────────────────────────────────────────────────────
+function showStep(idx) {
+  if (!steps.length) return;
+  idx = Math.max(0, Math.min(idx, steps.length - 1));
+  stepIdx = idx;
+
+  const s = steps[idx];
+  createNetwork(s.nodes || [], s.edges || []);
+  document.getElementById('step-desc').textContent = s.label || '';
+  document.getElementById('step-counter').textContent =
+    `Step ${idx + 1} / ${steps.length}`;
+  document.getElementById('empty-msg').style.display = 'none';
+}
+
+// ── Navigation ───────────────────────────────────────────────────────────────
+function gotoStep(i) { showStep(i); }
+function prevStep()  { showStep(stepIdx - 1); }
+function nextStep()  { showStep(stepIdx + 1); }
+
+function togglePlay() {
+  const btn = document.getElementById('play-btn');
+  if (playTimer) {
+    clearInterval(playTimer);
+    playTimer = null;
+    btn.textContent = '▷ Play';
+    btn.classList.remove('playing');
+  } else {
+    btn.textContent = '⏸ Pause';
+    btn.classList.add('playing');
+    const speed = 11 - parseInt(document.getElementById('speed-range').value);
+    playTimer = setInterval(() => {
+      if (stepIdx >= steps.length - 1) {
+        togglePlay();
+      } else {
+        nextStep();
+      }
+    }, speed * 120);
+  }
+}
+
+// ── Run solver ───────────────────────────────────────────────────────────────
+async function runSolver() {
+  if (playTimer) togglePlay();
+
+  const formula = document.getElementById('formula').value.trim();
+  const code    = editor.getValue();
+
+  setLog('');
+  document.getElementById('result-tag').textContent  = '…';
+  document.getElementById('result-tag').className    = '';
+  document.getElementById('assign-text').textContent = '';
+  document.getElementById('info-text').textContent   = '';
+
+  let res;
+  try {
+    res = await fetch('/solve', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ formula, code }),
+    });
+    res = await res.json();
+  } catch(e) {
+    setLog('Network error: ' + e.message);
+    document.getElementById('result-tag').textContent = '—';
+    return;
+  }
+
+  if (res.error) {
+    setLog(res.error);
+    document.getElementById('result-tag').textContent = '—';
+    return;
+  }
+
+  steps   = res.steps || [];
+  stepIdx = 0;
+
+  const tag = document.getElementById('result-tag');
+  if (res.result === 'SAT') {
+    tag.textContent = '✓  SATISFIABLE';
+    tag.className   = 'sat';
+    const aText = Object.entries(res.assignment)
+      .map(([k, v]) => `${k}=${v ? 'T' : 'F'}`)
+      .join('   ');
+    document.getElementById('assign-text').textContent = aText;
+  } else if (res.result === 'UNSAT') {
+    tag.textContent = '✗  UNSATISFIABLE';
+    tag.className   = 'unsat';
+    document.getElementById('assign-text').textContent = 'No satisfying assignment exists.';
+  } else {
+    tag.textContent = res.result;
+  }
+
+  document.getElementById('info-text').textContent = res.info || '';
+  document.getElementById('step-counter').textContent =
+    steps.length ? `Step 1 / ${steps.length}` : 'No steps';
+
+  if (steps.length) showStep(0);
+}
+
+// ── Reset code editor ────────────────────────────────────────────────────────
+function resetCode() {
+  editor.setValue(defaultCode);
+}
+
+// ── Log helper ───────────────────────────────────────────────────────────────
+function setLog(msg) {
+  document.getElementById('log').textContent = msg;
+}
+
+// ── Resizable left panel ─────────────────────────────────────────────────────
+(function () {
+  const handle = document.getElementById('resize-handle');
+  const left   = document.getElementById('left');
+  let dragging = false, startX = 0, startW = 0;
+  handle.addEventListener('mousedown', e => {
+    dragging = true; startX = e.clientX; startW = left.offsetWidth;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const w = Math.max(280, Math.min(700, startW + e.clientX - startX));
+    left.style.width = w + 'px';
+  });
+  document.addEventListener('mouseup', () => {
+    dragging = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
+
+// ── Keyboard shortcuts ───────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.target.classList.contains('CodeMirror-code')) return;
+  if (e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'ArrowRight') nextStep();
+  if (e.key === 'ArrowLeft')  prevStep();
+  if (e.key === 'Enter' && e.ctrlKey) runSolver();
+});
+</script>
+</body>
+</html>
