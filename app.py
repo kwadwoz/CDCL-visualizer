@@ -41,6 +41,8 @@ def solve(clauses, num_vars, var_names):
     lev     = {}   # var -> decision level
     reason  = {}   # var -> antecedent clause (None = decision)
     depth   = {}   # var -> implication depth (used as vis.js level for layout)
+    order   = {}   # var -> assignment timestamp (for correct 1-UIP resolution)
+    stamp   = [0]  # mutable counter
     dl      = 0
     steps   = []
 
@@ -142,6 +144,7 @@ def solve(clauses, num_vars, var_names):
                     lev[var]    = dl
                     reason[var] = c
                     depth[var]  = impl_depth(var)
+                    order[var]  = stamp[0]; stamp[0] += 1
                     snapshot(f"Propagate  {vn(var, assign[var])}  (level {dl})")
                     changed = True
         return None
@@ -154,7 +157,9 @@ def solve(clauses, num_vars, var_names):
                      if abs(l) in lev and lev[abs(l)] == dl and abs(l) not in seen]
             if len(at_dl) <= 1:
                 break
-            lit = at_dl[-1]
+            # Always resolve the most-recently-assigned literal — this is what
+            # guarantees we find the 1-UIP instead of looping on weak clauses
+            lit = max(at_dl, key=lambda l: order.get(abs(l), -1))
             var = abs(lit)
             seen.add(var)
             if reason.get(var):
@@ -166,7 +171,7 @@ def solve(clauses, num_vars, var_names):
 
     def backtrack(to_dl):
         for v in [v for v in list(assign) if lev[v] > to_dl]:
-            del assign[v], lev[v], reason[v], depth[v]
+            del assign[v], lev[v], reason[v], depth[v], order[v]
 
     # ── main CDCL loop ───────────────────────────────────────────────────────
     conf = unit_prop()
@@ -186,10 +191,11 @@ def solve(clauses, num_vars, var_names):
         lev[var]    = dl
         reason[var] = None
         depth[var]  = impl_depth(var)
+        order[var]  = stamp[0]; stamp[0] += 1
         snapshot(f"Decide  {vn(var, True)}  (level {dl})")
 
         conf = unit_prop()
-        if conf is not None:
+        while conf is not None:
             snapshot(f"Conflict at level {dl}", conf)
             learned, bt = analyze(conf)
             if dl == 0:
@@ -202,7 +208,7 @@ def solve(clauses, num_vars, var_names):
                 for l in learned if 0 < abs(l) <= len(var_names)
             )
             snapshot(f"Learned  [{lits_str}],  backtrack → level {bt}")
-            unit_prop()
+            conf = unit_prop()   # keep checking — a new conflict may arise at level 0
 
 result, assignment, steps = solve(clauses, num_vars, var_names)
 """

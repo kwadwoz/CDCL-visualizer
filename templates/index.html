@@ -300,13 +300,12 @@
 
 <script>
 // ── State ────────────────────────────────────────────────────────────────────
-let steps       = [];
-let stepIdx     = 0;
-let network     = null;
-let nodeDS      = null;
-let edgeDS      = null;
-let isFirstRun  = true;
-let playTimer   = null;
+let steps     = [];
+let stepIdx   = 0;
+let network   = null;
+let nodeDS    = null;
+let edgeDS    = null;
+let playTimer = null;
 const defaultCode = {{ default_code | tojson }};
 
 // ── CodeMirror setup ─────────────────────────────────────────────────────────
@@ -403,11 +402,14 @@ function showStep(idx) {
   edgeDS.clear();
   edgeDS.update(s.edges.map(fmtEdge));
 
-  // Fit only on the very first step of a new run
-  if (isFirstRun) {
-    network.fit({ animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
-    isFirstRun = false;
-  }
+  // Fit every step so nodes never drift off-screen, but clamp minimum scale
+  // so nodes never become unreadably small
+  network.fit({ animation: { duration: 350, easingFunction: 'easeInOutQuad' } });
+  setTimeout(() => {
+    if (network && network.getScale() < 0.55) {
+      network.moveTo({ scale: 0.55, animation: { duration: 200 } });
+    }
+  }, 400);
 
   // After 700 ms, remove the yellow highlight from new nodes
   if (newIds.size) {
@@ -494,9 +496,8 @@ async function runSolver() {
     return;
   }
 
-  steps      = res.steps || [];
-  stepIdx    = 0;
-  isFirstRun = true;
+  steps   = res.steps || [];
+  stepIdx = 0;
   initNetwork();
 
   const tag = document.getElementById('result-tag');
