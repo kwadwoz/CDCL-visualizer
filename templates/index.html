@@ -142,26 +142,42 @@
       background: var(--base); flex-shrink: 0;
     }
     .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--muted); }
-    .legend-dot {
-      width: 14px; height: 14px; border-radius: 50%;
-      display: inline-block; flex-shrink: 0;
-    }
-    .legend-diamond {
-      width: 12px; height: 12px; background: var(--blue);
-      transform: rotate(45deg); display: inline-block; flex-shrink: 0;
-    }
-    .legend-square {
-      width: 13px; height: 13px; background: var(--red);
-      border-radius: 2px; display: inline-block; flex-shrink: 0;
-    }
 
-    #network { flex: 1; }
+    #network-wrap { flex: 1; position: relative; min-height: 0; }
+    #network      { width: 100%; height: 100%; }
 
     #step-desc {
-      padding: 6px 16px; font-size: 0.82rem; color: var(--yellow);
-      background: var(--base); border-top: 1px solid var(--panel);
-      min-height: 32px; flex-shrink: 0;
+      padding: 10px 16px; font-size: 0.95rem; font-weight: bold;
+      color: var(--yellow); background: var(--base);
+      border-top: 1px solid var(--panel); flex-shrink: 0;
+      min-height: 40px; letter-spacing: 0.02em;
     }
+
+    /* ── State table (Python Tutor-style) ──────────────────────────────────── */
+    #state-panel {
+      border-top: 2px solid var(--blue); background: var(--base);
+      flex-shrink: 0; max-height: 220px; overflow-y: auto;
+    }
+    #state-panel h3 {
+      font-size: 0.7rem; color: var(--blue); letter-spacing: 0.1em;
+      text-transform: uppercase; padding: 6px 14px 4px;
+    }
+    #state-table {
+      width: 100%; border-collapse: collapse; font-size: 0.8rem;
+    }
+    #state-table th {
+      text-align: left; padding: 4px 14px;
+      color: var(--muted); font-weight: normal; font-size: 0.7rem;
+      border-bottom: 1px solid var(--panel); position: sticky; top: 0;
+      background: var(--base);
+    }
+    #state-table td { padding: 5px 14px; border-bottom: 1px solid #2a2a3e; }
+    #state-table tr:last-child td { border-bottom: none; }
+    .val-true  { color: var(--green); font-weight: bold; }
+    .val-false { color: var(--red);   font-weight: bold; }
+    .td-var    { color: var(--blue);  font-weight: bold; }
+    .td-reason { color: var(--muted); font-size: 0.75rem; }
+    .td-level  { color: var(--yellow); }
 
     /* resize handle */
     #resize-handle {
@@ -263,6 +279,20 @@
       </div>
 
       <div id="step-desc">Ready — enter a formula and click Run.</div>
+
+      <div id="state-panel">
+        <h3>Current Assignment</h3>
+        <table id="state-table">
+          <thead>
+            <tr>
+              <th>Variable</th><th>Value</th><th>Level</th><th>Reason</th>
+            </tr>
+          </thead>
+          <tbody id="state-body">
+            <tr><td colspan="4" style="color:var(--muted);padding:8px 14px;">No assignments yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
   </div>
@@ -273,6 +303,9 @@
 let steps       = [];
 let stepIdx     = 0;
 let network     = null;
+let nodeDS      = null;
+let edgeDS      = null;
+let isFirstRun  = true;
 let playTimer   = null;
 const defaultCode = {{ default_code | tojson }};
 
@@ -287,76 +320,119 @@ const editor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
   autofocus:   false,
   lineWrapping: false,
 });
-// Make CodeMirror fill its parent flex container
 editor.getWrapperElement().style.cssText =
   'flex:1;display:flex;flex-direction:column;overflow:hidden;';
 editor.getScrollerElement().style.flex = '1';
 
-// ── vis-network setup ────────────────────────────────────────────────────────
-function createNetwork(nodes, edges) {
-  const container = document.getElementById('network');
-  const data = {
-    nodes: new vis.DataSet(nodes.map(n => ({
-      id:          n.id,
-      label:       n.label,
-      title:       n.title || '',   // tooltip shown on hover
-      level:       n.level ?? 0,
-      color: {
-        background: n.color,
-        border:     n.color === '#89b4fa' ? '#5a8fd4'
-                  : n.color === '#a6e3a1' ? '#6db86d'
-                  : '#d4687a',
-        highlight: { background: n.color, border: '#ffffff' },
-        hover:     { background: n.color, border: '#ffffff' },
-      },
-      shape:       n.shape || 'ellipse',   // "box", "ellipse" — label is inside
-      font: { color: n.color === '#a6e3a1' ? '#1e3a1e' : '#a6e3a1', size: 15, bold: true },
-      borderWidth: n.borderWidth ?? 2,
-      margin:      8,
-    }))),
-    edges: new vis.DataSet(edges.map((e, i) => ({
-      id:     i,
-      from:   e.from,
-      to:     e.to,
-      label:  e.label || '',
-      title:  e.title || '',   // clause tooltip on hover
-      arrows: 'to',
-      color:  { color: '#6c7086', highlight: '#cdd6f4' },
-      smooth: { type: 'cubicBezier', forceDirection: 'horizontal', roundness: 0.3 },
-      font:   { color: '#cdd6f4', size: 9, align: 'middle' },
-    }))),
-  };
-  const options = {
-    layout: {
-      hierarchical: {
-        enabled:         true,
-        direction:       'LR',
-        sortMethod:      'directed',
-        levelSeparation: 160,
-        nodeSpacing:     90,
-        treeSpacing:     120,
-      },
+// ── Node / edge formatters ───────────────────────────────────────────────────
+function fmtNode(n, isNew) {
+  const borderCol = isNew ? '#f9e2af'                       // yellow flash for new
+    : n.color === '#89b4fa' ? '#5a8fd4'
+    : n.color === '#a6e3a1' ? '#6db86d' : '#d4687a';
+  return {
+    id:    n.id,
+    label: n.label,
+    title: n.title || '',
+    level: n.level ?? 0,
+    color: {
+      background: n.color,
+      border:     borderCol,
+      highlight: { background: n.color, border: '#ffffff' },
+      hover:     { background: n.color, border: '#ffffff' },
     },
-    physics:     { enabled: false },
-    interaction: { dragNodes: true, zoomView: true, hover: true },
+    shape:       n.shape || 'ellipse',
+    font:  { color: n.color === '#a6e3a1' ? '#1e3a1e' : '#a6e3a1', size: 16, bold: true },
+    borderWidth: isNew ? 4 : (n.borderWidth ?? 2),
+    margin: 12,
   };
-  if (network) network.destroy();
-  network = new vis.Network(container, data, options);
-  network.fit({ animation: { duration: 400, easingFunction: 'easeInOutQuad' } });
 }
 
-// ── Render a single step ─────────────────────────────────────────────────────
+function fmtEdge(e, i) {
+  return {
+    id:     i,
+    from:   e.from,
+    to:     e.to,
+    label:  e.label || '',
+    title:  e.title || '',
+    arrows: 'to',
+    color:  { color: '#6c7086', highlight: '#cdd6f4' },
+    smooth: { type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.3 },
+    font:   { color: '#cdd6f4', size: 9, align: 'middle' },
+  };
+}
+
+// ── Build network once, reuse DataSets ──────────────────────────────────────
+function initNetwork() {
+  if (network) network.destroy();
+  nodeDS = new vis.DataSet([]);
+  edgeDS = new vis.DataSet([]);
+  network = new vis.Network(
+    document.getElementById('network'),
+    { nodes: nodeDS, edges: edgeDS },
+    {
+      layout: {
+        hierarchical: {
+          enabled: true, direction: 'UD', sortMethod: 'directed',
+          levelSeparation: 130, nodeSpacing: 120, treeSpacing: 160,
+        },
+      },
+      physics:     { enabled: false },
+      interaction: { dragNodes: true, zoomView: true, hover: true,
+                     zoomExtent: { min: 0.3, max: 3 } },
+    }
+  );
+}
+
+// ── Render a single step (incremental — zoom stays stable) ──────────────────
 function showStep(idx) {
   if (!steps.length) return;
   idx = Math.max(0, Math.min(idx, steps.length - 1));
   stepIdx = idx;
 
-  const s = steps[idx];
-  createNetwork(s.nodes || [], s.edges || []);
-  document.getElementById('step-desc').textContent = s.label || '';
-  document.getElementById('step-counter').textContent =
-    `Step ${idx + 1} / ${steps.length}`;
-  document.getElementById('empty-msg').style.display = 'none';
+  const s    = steps[idx];
+  const prev = idx > 0 ? steps[idx - 1] : { nodes: [], edges: [] };
+
+  const prevIds = new Set(prev.nodes.map(n => n.id));
+  const curIds  = new Set(s.nodes.map(n => n.id));
+  const newIds  = new Set([...curIds].filter(id => !prevIds.has(id)));
+  const gone    = [...prevIds].filter(id => !curIds.has(id));
+
+  // Update graph incrementally — zoom is never touched
+  nodeDS.remove(gone);
+  nodeDS.update(s.nodes.map(n => fmtNode(n, newIds.has(n.id))));
+  edgeDS.clear();
+  edgeDS.update(s.edges.map(fmtEdge));
+
+  // Fit only on the very first step of a new run
+  if (isFirstRun) {
+    network.fit({ animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
+    isFirstRun = false;
+  }
+
+  // After 700 ms, remove the yellow highlight from new nodes
+  if (newIds.size) {
+    setTimeout(() => {
+      nodeDS.update(
+        s.nodes.filter(n => newIds.has(n.id)).map(n => fmtNode(n, false))
+      );
+    }, 700);
+  }
+
+  // Step counter + description
+  document.getElementById('step-counter').textContent = `Step ${idx + 1} / ${steps.length}`;
+  document.getElementById('step-desc').textContent    = s.label || '';
+  document.getElementById('empty-msg').style.display  = 'none';
+
+  // State table
+  const rows = (s.state || []).map(r => `
+    <tr>
+      <td class="td-var">${r.var}</td>
+      <td class="${r.value ? 'val-true' : 'val-false'}">${r.value ? 'True' : 'False'}</td>
+      <td class="td-level">${r.level}</td>
+      <td class="td-reason">${r.reason}</td>
+    </tr>`).join('');
+  document.getElementById('state-body').innerHTML =
+    rows || '<tr><td colspan="4" style="color:var(--muted);padding:8px 14px;">No assignments yet.</td></tr>';
 }
 
 // ── Navigation ───────────────────────────────────────────────────────────────
@@ -418,8 +494,10 @@ async function runSolver() {
     return;
   }
 
-  steps   = res.steps || [];
-  stepIdx = 0;
+  steps      = res.steps || [];
+  stepIdx    = 0;
+  isFirstRun = true;
+  initNetwork();
 
   const tag = document.getElementById('result-tag');
   if (res.result === 'SAT') {

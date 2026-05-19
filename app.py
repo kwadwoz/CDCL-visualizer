@@ -109,7 +109,16 @@ def solve(clauses, num_vars, var_names):
                         "from": vn(av, assign[av]), "to": "⊥",
                         "label": "", "title": conf_cls,
                     })
-        steps.append({"nodes": nodes, "edges": edges, "label": desc})
+        state = [
+            {
+                "var":    var_names[v - 1] if 0 < v <= len(var_names) else f"x{v}",
+                "value":  assign[v],
+                "level":  lev[v],
+                "reason": "Decision" if reason[v] is None else cls(reason[v]),
+            }
+            for v in sorted(assign.keys())
+        ]
+        steps.append({"nodes": nodes, "edges": edges, "label": desc, "state": state})
 
     def lit_val(lit):
         v = abs(lit)
