@@ -10,7 +10,7 @@ import re
 
 app = Flask(__name__)
 
-# ── Default algorithm shown in the editable code editor ──────────────────────
+#  Default algorithm shown in the editable code editor
 DEFAULT_ALGORITHM = """\
 
 #  ALGORITHM CODE — edit or replace with any solver you like!
