@@ -195,23 +195,8 @@ const BLUE='#89b4fa', GREEN='#a6e3a1', RED='#f38ba8';
 
 //  Default CDCL algorithm (JavaScript) 
 const DEFAULT_ALGORITHM = `
-//  ALGORITHM CODE — edit freely or replace with any solver!
-//
-//  Available variables:
-//    clauses   Array<Array<number>>   positive = literal, negative = negated
-//    num_vars  number
-//    var_names Array<string>          var_names[i-1] = name of variable i
-//
-//  You must declare and set before the code ends:
-//    var result      = "SAT" | "UNSAT"
-//    var assignment  = { var_int: bool }   (empty if UNSAT)
-//    var steps       = [ stepObj, ... ]
-//
-//  stepObj: { nodes, edges, label, state }
-//    nodes: [{ id, label, title, color, shape, borderWidth, level }]
-//    edges: [{ from, to, label, title }]
-//    state: [{ var, value, level, reason }]
-//  Shapes: "box" = decision  "ellipse" = propagation  "box"+red = conflict
+//  Inputs:  clauses (Array<Array<int>>), num_vars, var_names
+//  Outputs: result ("SAT"|"UNSAT"), assignment ({var_int: bool}), steps (Array)
 
 
 var result, assignment, steps;
