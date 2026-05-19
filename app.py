@@ -48,6 +48,14 @@ def solve(clauses, num_vars, var_names):
         name = var_names[var - 1] if 0 < var <= len(var_names) else f"x{var}"
         return ("¬" if not val else "") + name
 
+    def cls(clause):
+        # Format a clause as a readable string e.g. (¬A ∨ C)
+        parts = []
+        for l in clause:
+            n = var_names[abs(l)-1] if 0 < abs(l) <= len(var_names) else f"x{abs(l)}"
+            parts.append(("¬" if l < 0 else "") + n)
+        return "(" + " ∨ ".join(parts) + ")"
+
     def impl_depth(var):
         # decisions anchor at dl*100; propagated nodes get parent_max+1
         if reason[var] is None:
@@ -58,17 +66,29 @@ def solve(clauses, num_vars, var_names):
     def snapshot(desc, conflict_lits=None):
         nodes, edges = [], []
         for v, val in assign.items():
+            is_dec = reason[v] is None
             nodes.append({
-                "id":    vn(v, val),
-                "label": vn(v, val),
-                "color": "#89b4fa" if reason[v] is None else "#a6e3a1",
-                "shape": "diamond" if reason[v] is None else "dot",
-                "level": depth[v],
+                "id":          vn(v, val),
+                "label":       vn(v, val),
+                "title":       f"Decision at level {lev[v]}"
+                               if is_dec else
+                               f"Reason: {cls(reason[v])}",
+                "color":       "#89b4fa" if is_dec else "#a6e3a1",
+                "shape":       "box" if is_dec else "ellipse",
+                "borderWidth": 3 if is_dec else 1.5,
+                "level":       depth[v],
             })
         if conflict_lits is not None:
-            conf_depth = max((depth[abs(l)] for l in conflict_lits if abs(l) in depth), default=dl * 100) + 1
-            nodes.append({"id": "⊥", "label": "⊥",
-                          "color": "#f38ba8", "shape": "square", "level": conf_depth})
+            conf_depth = max(
+                (depth[abs(l)] for l in conflict_lits if abs(l) in depth),
+                default=dl * 100
+            ) + 1
+            nodes.append({
+                "id": "⊥", "label": "⊥",
+                "title": "Conflict",
+                "color": "#f38ba8", "shape": "box",
+                "borderWidth": 2, "level": conf_depth,
+            })
         for v, rc in reason.items():
             if rc is None:
                 continue
@@ -76,12 +96,19 @@ def solve(clauses, num_vars, var_names):
             for lit in rc:
                 av = abs(lit)
                 if av != v and av in assign:
-                    edges.append({"from": vn(av, assign[av]), "to": tgt, "label": ""})
+                    edges.append({
+                        "from": vn(av, assign[av]), "to": tgt,
+                        "label": "", "title": cls(rc),
+                    })
         if conflict_lits is not None:
+            conf_cls = cls(conflict_lits)
             for lit in conflict_lits:
                 av = abs(lit)
                 if av in assign:
-                    edges.append({"from": vn(av, assign[av]), "to": "⊥", "label": ""})
+                    edges.append({
+                        "from": vn(av, assign[av]), "to": "⊥",
+                        "label": "", "title": conf_cls,
+                    })
         steps.append({"nodes": nodes, "edges": edges, "label": desc})
 
     def lit_val(lit):

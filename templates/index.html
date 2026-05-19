@@ -247,9 +247,10 @@
     <div id="right">
       <div id="graph-header">
         <span style="color:var(--blue);font-size:0.8rem;font-weight:bold;">Implication Graph</span>
-        <span class="legend-item"><span class="legend-diamond"></span> Decision</span>
-        <span class="legend-item"><span class="legend-dot" style="background:var(--green)"></span> Propagation</span>
-        <span class="legend-item"><span class="legend-square"></span> Conflict ⊥</span>
+        <span class="legend-item"><span style="display:inline-block;width:28px;height:16px;background:var(--blue);border:2px solid #5a8fd4;border-radius:2px;"></span> Decision</span>
+        <span class="legend-item"><span style="display:inline-block;width:28px;height:16px;background:var(--green);border:2px solid #6db86d;border-radius:50%;"></span> Propagation</span>
+        <span class="legend-item"><span style="display:inline-block;width:16px;height:16px;background:var(--red);border:2px solid #d4687a;border-radius:2px;"></span> Conflict ⊥</span>
+        <span class="legend-item" style="color:var(--muted);font-size:0.65rem;">Hover nodes/edges for details</span>
         <button onclick="network && network.fit()" style="margin-left:auto;font-size:0.7rem">⊞ Fit</button>
       </div>
 
@@ -296,27 +297,29 @@ function createNetwork(nodes, edges) {
   const container = document.getElementById('network');
   const data = {
     nodes: new vis.DataSet(nodes.map(n => ({
-      id:    n.id,
-      label: n.label,
-      level: n.level ?? 0,
+      id:          n.id,
+      label:       n.label,
+      title:       n.title || '',   // tooltip shown on hover
+      level:       n.level ?? 0,
       color: {
         background: n.color,
-        border:     n.color,
-        highlight:  { background: n.color, border: '#ffffff' },
-        hover:      { background: n.color, border: '#ffffff' },
+        border:     n.color === '#89b4fa' ? '#5a8fd4'
+                  : n.color === '#a6e3a1' ? '#6db86d'
+                  : '#d4687a',
+        highlight: { background: n.color, border: '#ffffff' },
+        hover:     { background: n.color, border: '#ffffff' },
       },
-      shape:     n.shape === 'diamond' ? 'diamond'
-               : n.shape === 'square'  ? 'square'
-               : 'dot',
-      size:      n.shape === 'diamond' ? 22 : 18,
-      font: { color: '#181825', size: 13, bold: true },
-      borderWidth: 2,
+      shape:       n.shape || 'ellipse',   // "box", "ellipse" — label is inside
+      font: { color: '#181825', size: 14, bold: true },
+      borderWidth: n.borderWidth ?? 2,
+      margin:      8,
     }))),
     edges: new vis.DataSet(edges.map((e, i) => ({
       id:     i,
       from:   e.from,
       to:     e.to,
       label:  e.label || '',
+      title:  e.title || '',   // clause tooltip on hover
       arrows: 'to',
       color:  { color: '#6c7086', highlight: '#cdd6f4' },
       smooth: { type: 'cubicBezier', forceDirection: 'horizontal', roundness: 0.3 },
