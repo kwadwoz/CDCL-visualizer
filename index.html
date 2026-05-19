@@ -596,12 +596,12 @@ function showStep(idx) {
     return { ...n, x: (col - (ids.length - 1) / 2) * H, y: r * V };
   };
 
-  nodeDS.clear();
-  nodeDS.add(s.nodes.map(n => fmtNode(withXY(n), newIds.has(n.id))));
-  edgeDS.clear();
-  edgeDS.add(s.edges.map(fmtEdge));
-
-  network.fit({ animation: false });
+  // Swap data atomically then defer fit — calling fit() synchronously reads
+  // an empty bounding box because vis.js hasn't rendered the new nodes yet.
+  nodeDS = new vis.DataSet(s.nodes.map(n => fmtNode(withXY(n), newIds.has(n.id))));
+  edgeDS = new vis.DataSet(s.edges.map(fmtEdge));
+  network.setData({ nodes: nodeDS, edges: edgeDS });
+  setTimeout(() => network.fit(), 50);
 
   if (newIds.size) {
     setTimeout(() => {
